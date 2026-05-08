@@ -51,4 +51,12 @@ private :
     cv::Mat m_tempImageOut;
 
     std::unique_ptr<MAPS::InputReader> m_inputReader;
+
+    // Per-stage timing accumulators. Flushed every 100 frames.
+    long long m_perfGuardUs    = 0;
+    long long m_perfConvertUs  = 0;
+    long long m_perfCvtColorUs = 0;
+    long long m_perfFrameCount = 0;
+
+    void ReportTimingIfDue();
 };

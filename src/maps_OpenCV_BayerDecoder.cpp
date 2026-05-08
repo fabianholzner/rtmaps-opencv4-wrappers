@@ -28,6 +28,8 @@
 
 #include "maps_OpenCV_BayerDecoder.h"	// Includes the header of this component
 
+#include <chrono>
+
 // Use the macros to declare the inputs
 MAPS_BEGIN_INPUTS_DEFINITION(MAPSBayerDecoder)
 MAPS_INPUT("input_ipl", MAPS::FilterIplImage, MAPS::FifoReader)
@@ -195,11 +197,17 @@ void MAPSBayerDecoder::AllocateOutputBufferMaps(const MAPSTimestamp, const MAPS:
 
 void MAPSBayerDecoder::ProcessDataIpl(const MAPSTimestamp ts, const MAPS::InputElt<IplImage> inElt)
 {
+    const auto t0 = std::chrono::steady_clock::now();
+
     MAPS::OutputGuard<IplImage> outGuard{ this, Output(0) };
     IplImage& imageOut = outGuard.Data();
 
+    const auto t1 = std::chrono::steady_clock::now();
+
     m_tempImageOut = convTools::noCopyIplImage2Mat(&imageOut); // Convert IplImage to cv::Mat without copying
     m_tempImageIn = convTools::noCopyIplImage2Mat(&inElt.Data());
+
+    const auto t2 = std::chrono::steady_clock::now();
 
     try {
         // Convert an image from one color space to another depending on the pattern use
@@ -224,17 +232,30 @@ void MAPSBayerDecoder::ProcessDataIpl(const MAPSTimestamp ts, const MAPS::InputE
         Error(e.what());
     }
 
+    const auto t3 = std::chrono::steady_clock::now();
+
     if (static_cast<void*>(m_tempImageOut.data) != static_cast<void*>(imageOut.imageData)) // if the ptr are different then opencv reallocated memory for the cv::Mat
         Error("cv::Mat data ptr and imageOut data ptr are different.");
 
     outGuard.VectorSize() = 0;
     outGuard.Timestamp() = ts;
+
+    using us = std::chrono::microseconds;
+    m_perfGuardUs    += std::chrono::duration_cast<us>(t1 - t0).count();
+    m_perfConvertUs  += std::chrono::duration_cast<us>(t2 - t1).count();
+    m_perfCvtColorUs += std::chrono::duration_cast<us>(t3 - t2).count();
+    ++m_perfFrameCount;
+    ReportTimingIfDue();
 }
 
 void MAPSBayerDecoder::ProcessDataMaps(const MAPSTimestamp ts, const MAPS::InputElt<MAPSImage> inElt)
 {
+    const auto t0 = std::chrono::steady_clock::now();
+
     MAPS::OutputGuard<IplImage> outGuard{ this, Output(0) };
     IplImage& imageOut = outGuard.Data();
+
+    const auto t1 = std::chrono::steady_clock::now();
 
     const MAPSImage& imageIn = inElt.Data();
 
@@ -272,6 +293,8 @@ void MAPSBayerDecoder::ProcessDataMaps(const MAPSTimestamp ts, const MAPS::Input
 
     m_tempImageOut = convTools::noCopyIplImage2Mat(&imageOut); // Convert IplImage to cv::Mat without copying
 
+    const auto t2 = std::chrono::steady_clock::now();
+
     try {
         // Convert an image from one color space to another depending on the pattern use
         switch (m_pattern)
@@ -295,9 +318,33 @@ void MAPSBayerDecoder::ProcessDataMaps(const MAPSTimestamp ts, const MAPS::Input
         Error(e.what());
     }
 
+    const auto t3 = std::chrono::steady_clock::now();
+
     if (static_cast<void*>(m_tempImageOut.data) != static_cast<void*>(imageOut.imageData)) // if the ptr are different then opencv reallocated memory for the cv::Mat
         Error("cv::Mat data ptr and imageOut data ptr are different.");
 
     outGuard.VectorSize() = 0;
     outGuard.Timestamp() = ts;
+
+    using us = std::chrono::microseconds;
+    m_perfGuardUs    += std::chrono::duration_cast<us>(t1 - t0).count();
+    m_perfConvertUs  += std::chrono::duration_cast<us>(t2 - t1).count();
+    m_perfCvtColorUs += std::chrono::duration_cast<us>(t3 - t2).count();
+    ++m_perfFrameCount;
+    ReportTimingIfDue();
+}
+
+void MAPSBayerDecoder::ReportTimingIfDue()
+{
+    if (m_perfFrameCount < 100) return;
+    MAPSStreamedString sx;
+    sx << "BayerDecoder timing avg over " << static_cast<MAPSInt64>(m_perfFrameCount) << " frames (us): "
+       << "OutputGuard=" << static_cast<MAPSInt64>(m_perfGuardUs    / m_perfFrameCount)
+       << ", IplImage<->Mat=" << static_cast<MAPSInt64>(m_perfConvertUs  / m_perfFrameCount)
+       << ", cvtColor=" << static_cast<MAPSInt64>(m_perfCvtColorUs / m_perfFrameCount);
+    ReportInfo(sx);
+    m_perfGuardUs = 0;
+    m_perfConvertUs = 0;
+    m_perfCvtColorUs = 0;
+    m_perfFrameCount = 0;
 }

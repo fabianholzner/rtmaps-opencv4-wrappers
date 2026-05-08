@@ -56,4 +56,11 @@ private :
 
     MAPSArray<MAPSArray<MAPSDrawingObject>> m_shapes;
     std::unique_ptr<MAPS::InputReader> m_inputReader;
+
+    // Per-stage timing accumulators. Flushed every 100 frames.
+    long long m_perfGuardUs    = 0;
+    long long m_perfShapesUs   = 0;
+    long long m_perfMemcpyUs   = 0;
+    long long m_perfDrawUs     = 0;
+    long long m_perfFrameCount = 0;
 };

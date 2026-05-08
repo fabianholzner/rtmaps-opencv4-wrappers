@@ -28,6 +28,8 @@
 
 #include "maps_OpenCV_VideoMuxer.h" // Includes the header of this component
 
+#include <chrono>
+
 // Use the macros to declare the inputs
 MAPS_BEGIN_INPUTS_DEFINITION(MAPSOpenCV_VideoMuxer)
     MAPS_INPUT("imageIn_fifo", MAPS::FilterIplImage, MAPS::FifoReader)
@@ -359,11 +361,18 @@ void MAPSOpenCV_VideoMuxer::OutputResultImage(MAPSTimestamp t, const MAPS::Array
 {
     if (!m_outputInitialized)
         return;
+
+    const auto t0 = std::chrono::steady_clock::now();
+
     MAPS::OutputGuard<IplImage> outGuard{ this, Output(0) };
     IplImage& imageOut = outGuard.Data(); // Convert IplImage to cv::Mat without copying
     outGuard.Timestamp() = t;
 
+    const auto t1 = std::chrono::steady_clock::now();
+
     BackgroundInitialization(&imageOut);
+
+    const auto t2 = std::chrono::steady_clock::now();
 
     IplImage intermediate_image;
     if (m_outNeedResize)
@@ -513,12 +522,37 @@ void MAPSOpenCV_VideoMuxer::OutputResultImage(MAPSTimestamp t, const MAPS::Array
             }
         }
     }
+    const auto t3 = std::chrono::steady_clock::now();
+
     if (m_outNeedResize)
     {
         cv::Mat out_mat = convTools::noCopyIplImage2Mat(&imageOut);
         intermediate_image.roi = nullptr;
         cv::Mat intermediate_mat = convTools::noCopyIplImage2Mat(&intermediate_image);
         cv::resize(intermediate_mat, out_mat, out_mat.size());
+    }
+
+    const auto t4 = std::chrono::steady_clock::now();
+
+    using us = std::chrono::microseconds;
+    m_perfGuardUs   += std::chrono::duration_cast<us>(t1 - t0).count();
+    m_perfBgInitUs  += std::chrono::duration_cast<us>(t2 - t1).count();
+    m_perfComposeUs += std::chrono::duration_cast<us>(t3 - t2).count();
+    m_perfFinalRsUs += std::chrono::duration_cast<us>(t4 - t3).count();
+    if (++m_perfFrameCount >= 100)
+    {
+        MAPSStreamedString sx;
+        sx << "VideoMuxer timing avg over " << static_cast<MAPSInt64>(m_perfFrameCount) << " frames (us): "
+           << "OutputGuard=" << static_cast<MAPSInt64>(m_perfGuardUs   / m_perfFrameCount)
+           << ", bgInit=" << static_cast<MAPSInt64>(m_perfBgInitUs  / m_perfFrameCount)
+           << ", compose=" << static_cast<MAPSInt64>(m_perfComposeUs / m_perfFrameCount)
+           << ", finalResize=" << static_cast<MAPSInt64>(m_perfFinalRsUs / m_perfFrameCount);
+        ReportInfo(sx);
+        m_perfGuardUs = 0;
+        m_perfBgInitUs = 0;
+        m_perfComposeUs = 0;
+        m_perfFinalRsUs = 0;
+        m_perfFrameCount = 0;
     }
 }
 

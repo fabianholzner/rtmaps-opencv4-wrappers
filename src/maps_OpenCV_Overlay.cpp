@@ -28,6 +28,8 @@
 
 #include "maps_OpenCV_Overlay.h"	// Includes the header of this component
 
+#include <chrono>
+
 // Use the macros to declare the inputs
 MAPS_BEGIN_INPUTS_DEFINITION(MAPScvOverlay)
     MAPS_INPUT("images", MAPS::FilterIplImage, MAPS::FifoReader)
@@ -221,9 +223,13 @@ void MAPScvOverlay::AllocateOutputBufferSize(const MAPSTimestamp, const MAPS::Ar
 
 void MAPScvOverlay::ProcessData(const MAPSTimestamp ts, const MAPS::ArrayView<MAPS::InputElt<>> inElts)
 {
+    const auto t0 = std::chrono::steady_clock::now();
+
     const IplImage& imageIn = inElts[0].DataAs<IplImage>();
     MAPS::OutputGuard<IplImage> outGuard{ this, Output(0) };
     IplImage& imageOut = outGuard.Data();
+
+    const auto t1 = std::chrono::steady_clock::now();
 
     m_chanSeq = imageIn.channelSeq;
 
@@ -242,7 +248,11 @@ void MAPScvOverlay::ProcessData(const MAPSTimestamp ts, const MAPS::ArrayView<MA
         }
     }
 
+    const auto t2 = std::chrono::steady_clock::now();
+
     std::memcpy(imageOut.imageData, imageIn.imageData, imageIn.imageSize);
+
+    const auto t3 = std::chrono::steady_clock::now();
 
     try
     {
@@ -260,8 +270,31 @@ void MAPScvOverlay::ProcessData(const MAPSTimestamp ts, const MAPS::ArrayView<MA
         Error(e.what());
     }
 
+    const auto t4 = std::chrono::steady_clock::now();
+
     outGuard.VectorSize() = 0;
     outGuard.Timestamp() = ts;
+
+    using us = std::chrono::microseconds;
+    m_perfGuardUs   += std::chrono::duration_cast<us>(t1 - t0).count();
+    m_perfShapesUs  += std::chrono::duration_cast<us>(t2 - t1).count();
+    m_perfMemcpyUs  += std::chrono::duration_cast<us>(t3 - t2).count();
+    m_perfDrawUs    += std::chrono::duration_cast<us>(t4 - t3).count();
+    if (++m_perfFrameCount >= 100)
+    {
+        MAPSStreamedString sx;
+        sx << "Overlay timing avg over " << static_cast<MAPSInt64>(m_perfFrameCount) << " frames (us): "
+           << "OutputGuard=" << static_cast<MAPSInt64>(m_perfGuardUs  / m_perfFrameCount)
+           << ", shapesGather=" << static_cast<MAPSInt64>(m_perfShapesUs / m_perfFrameCount)
+           << ", memcpy=" << static_cast<MAPSInt64>(m_perfMemcpyUs / m_perfFrameCount)
+           << ", draw=" << static_cast<MAPSInt64>(m_perfDrawUs    / m_perfFrameCount);
+        ReportInfo(sx);
+        m_perfGuardUs = 0;
+        m_perfShapesUs = 0;
+        m_perfMemcpyUs = 0;
+        m_perfDrawUs = 0;
+        m_perfFrameCount = 0;
+    }
 }
 
 void MAPScvOverlay::updateFontFace(MAPSInt64 index)
@@ -407,7 +440,7 @@ void MAPScvOverlay::overlayShape(cv::Mat output, MAPSDrawingObject& todraw)
         else if (MAPSSpot::CircledCross == spot.kind)
         {
             MAPSInt32	len = MAX(1, todraw.width / 2);
-            MAPSInt32	cw = MAPSInt32(len * 0.707106); // circle_ray * cos(45°)
+            MAPSInt32	cw = MAPSInt32(len * 0.707106); // circle_ray * cos(45ï¿½)
             cv::line(output, cv::Point(spot.x - cw, spot.y - cw), cv::Point(spot.x + cw, spot.y + cw), color, thickness);
             cv::line(output, cv::Point(spot.x - cw, spot.y + cw), cv::Point(spot.x + cw, spot.y - cw), color, thickness);
             cv::circle(output, cv::Point(spot.x, spot.y), len, color, thickness);

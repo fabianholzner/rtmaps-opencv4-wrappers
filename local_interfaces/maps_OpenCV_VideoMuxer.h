@@ -92,4 +92,11 @@ private :
     cv::Mat m_black;
 
     std::unique_ptr<MAPS::InputReader> m_inputReader;
+
+    // Per-stage timing accumulators. Flushed every 100 frames.
+    long long m_perfGuardUs    = 0;
+    long long m_perfBgInitUs   = 0;
+    long long m_perfComposeUs  = 0;
+    long long m_perfFinalRsUs  = 0;
+    long long m_perfFrameCount = 0;
 };
