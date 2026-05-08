@@ -28,6 +28,8 @@
 #include "maps_OpenCV_Resize.h"	// Includes the header of this component
 #include "maps_io_access.hpp"
 
+#include <chrono>
+
 // Use the macros to declare the inputs
 MAPS_BEGIN_INPUTS_DEFINITION(MAPSOpenCV_Resize)
 MAPS_INPUT("imageIn", MAPS::FilterIplImage, MAPS::FifoReader)
@@ -118,18 +120,47 @@ void MAPSOpenCV_Resize::ProcessData(const MAPSTimestamp ts, const MAPS::InputElt
 {
     try
     {
+        // Time the three stages separately so we can tell whether the cost is
+        // in MAPS' output buffer handoff (OutputGuard, often blocked by a slow
+        // downstream consumer), in the IplImage<->cv::Mat conversion, or in
+        // cv::resize itself. Reported as a rolling average every 100 frames.
+        const auto t0 = std::chrono::steady_clock::now();
+
         MAPS::OutputGuard<IplImage> outGuard{ this, Output(0) };
         IplImage& imageOut = outGuard.Data();
 
+        const auto t1 = std::chrono::steady_clock::now();
 
         cv::Mat tempImageOut = convTools::noCopyIplImage2Mat(&imageOut); // Convert IplImage to cv::Mat without copying
         cv::Mat tempImageIn = convTools::noCopyIplImage2Mat(&inElt.Data());
 
+        const auto t2 = std::chrono::steady_clock::now();
+
         // Create a new image using the data of the input image, the new size and the interpollation method choose
         cv::resize(tempImageIn, tempImageOut, m_newSize, 0, 0, m_method);
 
+        const auto t3 = std::chrono::steady_clock::now();
+
         outGuard.VectorSize() = 0;
         outGuard.Timestamp() = ts;
+
+        using us = std::chrono::microseconds;
+        m_perfGuardUs   += std::chrono::duration_cast<us>(t1 - t0).count();
+        m_perfConvertUs += std::chrono::duration_cast<us>(t2 - t1).count();
+        m_perfResizeUs  += std::chrono::duration_cast<us>(t3 - t2).count();
+        if (++m_perfFrameCount >= 100)
+        {
+            MAPSStreamedString sx;
+            sx << "resize timing avg over " << static_cast<MAPSInt64>(m_perfFrameCount) << " frames (us): "
+               << "OutputGuard=" << static_cast<MAPSInt64>(m_perfGuardUs   / m_perfFrameCount)
+               << ", IplImage<->Mat=" << static_cast<MAPSInt64>(m_perfConvertUs / m_perfFrameCount)
+               << ", cv::resize=" << static_cast<MAPSInt64>(m_perfResizeUs  / m_perfFrameCount);
+            ReportInfo(sx);
+            m_perfGuardUs = 0;
+            m_perfConvertUs = 0;
+            m_perfResizeUs = 0;
+            m_perfFrameCount = 0;
+        }
     }
     catch (const std::exception& e)
     {
