@@ -21,7 +21,7 @@ cmake_minimum_required(VERSION 2.8.12)
 set(PCK rtmaps_opencv4)
 project("${PCK}.u")
 
-set(CMAKE_CXX_STANDARD          11 )
+set(CMAKE_CXX_STANDARD          17 )
 set(CMAKE_CXX_STANDARD_REQUIRED ON )
 
 if (NOT DEFINED RTMAPS_SDKDIR)  # If -D"RTMAPS_SDKDIR=<RTMaps Install Dir>" has NOT been passed to the "cmake" command
