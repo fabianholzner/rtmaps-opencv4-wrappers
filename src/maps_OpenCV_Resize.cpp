@@ -64,7 +64,23 @@ void MAPSOpenCV_Resize::Birth()
 
     m_newSize = cv::Size(static_cast<int>(GetIntegerProperty("new_size_x")), static_cast<int>(GetIntegerProperty("new_size_y")));
     UpdateInterp(GetIntegerProperty("interpolation"));
-   
+
+    // Make sure runtime-dispatched optimizations and all CPU cores are used.
+    cv::setUseOptimized(true);
+    cv::setNumThreads(cv::getNumberOfCPUs());
+
+    // One-time diagnostic dump: lets the user verify how their OpenCV was built
+    // (Release, IPP, parallel framework, CPU baseline) and whether runtime
+    // optimization/threading are active.
+    ReportInfo(cv::getBuildInformation().c_str());
+    {
+        MAPSStreamedString sx;
+        sx << "OpenCV runtime status -- optimized: " << (cv::useOptimized() ? "YES" : "NO")
+           << ", threads: " << cv::getNumThreads()
+           << ", CPUs: " << cv::getNumberOfCPUs();
+        ReportInfo(sx);
+    }
+
     m_inputReader = MAPS::MakeInputReader::Reactive(
         this,
         Input(0),
