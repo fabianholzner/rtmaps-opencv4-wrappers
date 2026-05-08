@@ -41,6 +41,7 @@ private:
     void AllocateOutputBufferSize(const MAPSTimestamp /*ts*/, const MAPS::InputElt<IplImage> imageInElt);
     void ProcessData(const MAPSTimestamp ts, const MAPS::InputElt<IplImage> inElt);
     void UpdateInterp(MAPSInt64 selectedEnum);
+    void ApplyNumThreads(MAPSInt64 value);
 
 private:
     // Place here your specific methods and attributes

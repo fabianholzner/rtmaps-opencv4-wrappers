@@ -43,6 +43,7 @@ MAPS_BEGIN_PROPERTIES_DEFINITION(MAPSOpenCV_Resize)
 MAPS_PROPERTY("new_size_x", 320, false, false)
 MAPS_PROPERTY("new_size_y", 240, false, false)
 MAPS_PROPERTY_ENUM("interpolation", "Nearest Neighbor|Bilinear|Bicubic|Area|Lanczos|Linear Exact", 1, false, true)
+MAPS_PROPERTY("num_threads", 1, false, true)
 MAPS_END_PROPERTIES_DEFINITION
 
 // Use the macros to declare the actions
@@ -55,7 +56,7 @@ MAPS_COMPONENT_DEFINITION(MAPSOpenCV_Resize, "OpenCV_Resize", "2.1.1", 128,
                             MAPS::Threaded | MAPS::Sequential, MAPS::Threaded,
                             -1, // Nb of inputs
                             -1, // Nb of outputs
-                            3, // Nb of properties
+                            4, // Nb of properties
                             -1) // Nb of actions
 
 void MAPSOpenCV_Resize::Birth()
@@ -65,9 +66,14 @@ void MAPSOpenCV_Resize::Birth()
     m_newSize = cv::Size(static_cast<int>(GetIntegerProperty("new_size_x")), static_cast<int>(GetIntegerProperty("new_size_y")));
     UpdateInterp(GetIntegerProperty("interpolation"));
 
-    // Make sure runtime-dispatched optimizations and all CPU cores are used.
+    // Make sure runtime-dispatched optimizations are enabled, and apply the
+    // user-configured thread count. num_threads <= 0 means "let OpenCV decide
+    // (use all CPUs)"; any positive value caps the parallel framework to that
+    // many threads. Default is 1 because for cheap, memory-bandwidth-bound
+    // interpolations (especially nearest neighbor) on many-core CPUs the TBB
+    // scheduling overhead can exceed the actual resize work.
     cv::setUseOptimized(true);
-    cv::setNumThreads(cv::getNumberOfCPUs());
+    ApplyNumThreads(GetIntegerProperty("num_threads"));
 
     // One-time diagnostic dump: lets the user verify how their OpenCV was built
     // (Release, IPP, parallel framework, CPU baseline) and whether runtime
@@ -165,6 +171,20 @@ void MAPSOpenCV_Resize::Set(MAPSProperty& p, MAPSInt64 value)
     {
         UpdateInterp(value);
     }
+    else if (p.ShortName() == "num_threads")
+    {
+        ApplyNumThreads(value);
+    }
+}
+
+void MAPSOpenCV_Resize::ApplyNumThreads(MAPSInt64 value)
+{
+    const int requested = (value <= 0) ? cv::getNumberOfCPUs() : static_cast<int>(value);
+    cv::setNumThreads(requested);
+    MAPSStreamedString sx;
+    sx << "OpenCV thread count set to " << cv::getNumThreads()
+       << " (requested " << requested << ")";
+    ReportInfo(sx);
 }
 
 void MAPSOpenCV_Resize::Set(MAPSProperty& p, const MAPSString& value)
