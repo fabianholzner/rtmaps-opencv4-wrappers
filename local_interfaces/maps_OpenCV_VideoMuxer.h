@@ -47,6 +47,7 @@ private:
     void Initialization_Trigerred(const MAPSTimestamp /*ts*/, const MAPS::ArrayView <MAPS::InputElt<IplImage>> inElts);
     void ProcessData(const MAPSTimestamp ts, const MAPS::ArrayView<MAPS::InputElt<IplImage>> inElts);
     void ProcessData_Reactive(const MAPSTimestamp ts, const MAPS::ArrayView<MAPS::InputElt<IplImage>> inElts);
+    void ApplyNumThreads(MAPSInt64 value);
 
     void ComputeSizesAndAllocOutBuffer();
     void OutputResultImage(MAPSTimestamp t, const MAPS::ArrayView<MAPS::InputElt<IplImage>>& inElts);
@@ -68,6 +69,7 @@ private :
     int m_outmHeight;
     bool m_outNeedResize;
     bool m_outputInitialized;
+    bool m_verbose = false;
     unsigned int m_dataOrder;
     unsigned int m_depth;
     unsigned int m_align;

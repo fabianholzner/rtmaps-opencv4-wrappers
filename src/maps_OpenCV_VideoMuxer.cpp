@@ -56,6 +56,11 @@ MAPS_BEGIN_PROPERTIES_DEFINITION(MAPSOpenCV_VideoMuxer)
     MAPS_PROPERTY("height", -1, false, true)
     MAPS_PROPERTY("z_order", -1, false, true)
     MAPS_PROPERTY_END_SUBSECTION("subsection_end_opened", true)
+    // num_threads: cv::setNumThreads is process-global so any value set here
+    // applies to every OpenCV call in the diagram. 0 = use all CPUs.
+    MAPS_PROPERTY("num_threads", 1, false, true)
+    // verbose: gates per-stage timing logging to the RTMaps console.
+    MAPS_PROPERTY("verbose", false, false, true)
 MAPS_END_PROPERTIES_DEFINITION
 
 // Use the macros to declare the actions
@@ -181,6 +186,10 @@ void MAPSOpenCV_VideoMuxer::Dynamic()
 
 void MAPSOpenCV_VideoMuxer::Birth()
 {
+    m_verbose = GetBoolProperty("verbose");
+    cv::setUseOptimized(true);
+    ApplyNumThreads(GetIntegerProperty("num_threads"));
+
     //Initialize member variables
     m_ioEltImage.SetSize(m_nbInputs);
     m_sizeInitialized.resize(m_nbInputs);
@@ -541,13 +550,16 @@ void MAPSOpenCV_VideoMuxer::OutputResultImage(MAPSTimestamp t, const MAPS::Array
     m_perfFinalRsUs += std::chrono::duration_cast<us>(t4 - t3).count();
     if (++m_perfFrameCount >= 100)
     {
-        MAPSStreamedString sx;
-        sx << "VideoMuxer timing avg over " << static_cast<MAPSInt64>(m_perfFrameCount) << " frames (us): "
-           << "OutputGuard=" << static_cast<MAPSInt64>(m_perfGuardUs   / m_perfFrameCount)
-           << ", bgInit=" << static_cast<MAPSInt64>(m_perfBgInitUs  / m_perfFrameCount)
-           << ", compose=" << static_cast<MAPSInt64>(m_perfComposeUs / m_perfFrameCount)
-           << ", finalResize=" << static_cast<MAPSInt64>(m_perfFinalRsUs / m_perfFrameCount);
-        ReportInfo(sx);
+        if (m_verbose)
+        {
+            MAPSStreamedString sx;
+            sx << "VideoMuxer timing avg over " << static_cast<MAPSInt64>(m_perfFrameCount) << " frames (us): "
+               << "OutputGuard=" << static_cast<MAPSInt64>(m_perfGuardUs   / m_perfFrameCount)
+               << ", bgInit=" << static_cast<MAPSInt64>(m_perfBgInitUs  / m_perfFrameCount)
+               << ", compose=" << static_cast<MAPSInt64>(m_perfComposeUs / m_perfFrameCount)
+               << ", finalResize=" << static_cast<MAPSInt64>(m_perfFinalRsUs / m_perfFrameCount);
+            ReportInfo(sx);
+        }
         m_perfGuardUs = 0;
         m_perfBgInitUs = 0;
         m_perfComposeUs = 0;
@@ -582,6 +594,16 @@ void MAPSOpenCV_VideoMuxer::SortIOEltsByZOrder()
 void MAPSOpenCV_VideoMuxer::Set(MAPSProperty& p, MAPSInt64 value)
 {
     MAPSComponent::Set(p, value);
+    if (p.ShortName() == "num_threads")
+    {
+        ApplyNumThreads(value);
+        return;
+    }
+    if (p.ShortName() == "verbose")
+    {
+        m_verbose = (value != 0);
+        return;
+    }
     if (IsStarted())
     {
         const std::lock_guard<std::mutex> lock(m_zorderMutex);
@@ -618,6 +640,19 @@ void MAPSOpenCV_VideoMuxer::Set(MAPSProperty& p, MAPSInt64 value)
                 break;
             }
         }
+    }
+}
+
+void MAPSOpenCV_VideoMuxer::ApplyNumThreads(MAPSInt64 value)
+{
+    const int requested = (value <= 0) ? cv::getNumberOfCPUs() : static_cast<int>(value);
+    cv::setNumThreads(requested);
+    if (m_verbose)
+    {
+        MAPSStreamedString sx;
+        sx << "OpenCV thread count set to " << cv::getNumThreads()
+           << " (requested " << requested << ")";
+        ReportInfo(sx);
     }
 }
 

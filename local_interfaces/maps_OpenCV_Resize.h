@@ -47,6 +47,7 @@ private:
     // Place here your specific methods and attributes
     int m_method;
     bool m_firsttime;
+    bool m_verbose = false;
 
     cv::Size m_newSize;
     std::unique_ptr<MAPS::InputReader> m_inputReader;

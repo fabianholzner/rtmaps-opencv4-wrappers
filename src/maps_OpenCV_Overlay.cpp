@@ -54,6 +54,11 @@ MAPS_BEGIN_PROPERTIES_DEFINITION(MAPScvOverlay)
     MAPS_PROPERTY("fill_shape", false, false, false)
     MAPS_PROPERTY("override_color", false, false, false)
     MAPS_PROPERTY_SUBTYPE("color", MAPS_RGB(0xFF, 0xFF, 0xFF), false, true, MAPS::PropertySubTypeColor)
+    // num_threads: cv::setNumThreads is process-global so any value set here
+    // applies to every OpenCV call in the diagram. 0 = use all CPUs.
+    MAPS_PROPERTY("num_threads", 1, false, true)
+    // verbose: gates per-stage timing logging to the RTMaps console.
+    MAPS_PROPERTY("verbose", false, false, true)
 MAPS_END_PROPERTIES_DEFINITION
 
 enum PROPERTY : uint8_t
@@ -86,7 +91,7 @@ MAPS_COMPONENT_DEFINITION(MAPScvOverlay, "OpenCV_Overlay", "2.0.3", 128,
                             MAPS::Threaded, MAPS::Threaded,
                              1, // Nb of inputs
                             -1, // Nb of outputs
-                             9, // Nb of properties
+                            11, // Nb of properties
                             -1) // Nb of actions
 
 void MAPScvOverlay::Dynamic()
@@ -114,6 +119,10 @@ void MAPScvOverlay::Dynamic()
 void MAPScvOverlay::Birth()
 {
     updateFontFace(GetIntegerProperty(PROPERTY_FONT));
+    m_verbose = GetBoolProperty("verbose");
+
+    cv::setUseOptimized(true);
+    ApplyNumThreads(GetIntegerProperty("num_threads"));
 
     switch (m_readersMode)
     {
@@ -164,6 +173,23 @@ void MAPScvOverlay::Set(MAPSProperty &p, MAPSInt64 value)
     MAPSComponent::Set(p,value);
     if (&p == &Property(PROPERTY_FONT))
         updateFontFace(value);
+    else if (p.ShortName() == "num_threads")
+        ApplyNumThreads(value);
+    else if (p.ShortName() == "verbose")
+        m_verbose = (value != 0);
+}
+
+void MAPScvOverlay::ApplyNumThreads(MAPSInt64 value)
+{
+    const int requested = (value <= 0) ? cv::getNumberOfCPUs() : static_cast<int>(value);
+    cv::setNumThreads(requested);
+    if (m_verbose)
+    {
+        MAPSStreamedString sx;
+        sx << "OpenCV thread count set to " << cv::getNumThreads()
+           << " (requested " << requested << ")";
+        ReportInfo(sx);
+    }
 }
 
 //... selecting the desired string ...
@@ -282,13 +308,16 @@ void MAPScvOverlay::ProcessData(const MAPSTimestamp ts, const MAPS::ArrayView<MA
     m_perfDrawUs    += std::chrono::duration_cast<us>(t4 - t3).count();
     if (++m_perfFrameCount >= 100)
     {
-        MAPSStreamedString sx;
-        sx << "Overlay timing avg over " << static_cast<MAPSInt64>(m_perfFrameCount) << " frames (us): "
-           << "OutputGuard=" << static_cast<MAPSInt64>(m_perfGuardUs  / m_perfFrameCount)
-           << ", shapesGather=" << static_cast<MAPSInt64>(m_perfShapesUs / m_perfFrameCount)
-           << ", memcpy=" << static_cast<MAPSInt64>(m_perfMemcpyUs / m_perfFrameCount)
-           << ", draw=" << static_cast<MAPSInt64>(m_perfDrawUs    / m_perfFrameCount);
-        ReportInfo(sx);
+        if (m_verbose)
+        {
+            MAPSStreamedString sx;
+            sx << "Overlay timing avg over " << static_cast<MAPSInt64>(m_perfFrameCount) << " frames (us): "
+               << "OutputGuard=" << static_cast<MAPSInt64>(m_perfGuardUs  / m_perfFrameCount)
+               << ", shapesGather=" << static_cast<MAPSInt64>(m_perfShapesUs / m_perfFrameCount)
+               << ", memcpy=" << static_cast<MAPSInt64>(m_perfMemcpyUs / m_perfFrameCount)
+               << ", draw=" << static_cast<MAPSInt64>(m_perfDrawUs    / m_perfFrameCount);
+            ReportInfo(sx);
+        }
         m_perfGuardUs = 0;
         m_perfShapesUs = 0;
         m_perfMemcpyUs = 0;

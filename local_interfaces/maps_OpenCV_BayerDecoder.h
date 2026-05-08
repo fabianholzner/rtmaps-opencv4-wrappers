@@ -34,6 +34,7 @@ class MAPSBayerDecoder : public MAPSComponent
     MAPS_COMPONENT_STANDARD_HEADER_CODE(MAPSBayerDecoder)
 
     void Set(MAPSProperty& p, const MAPSString& value) override;
+    void Set(MAPSProperty& p, MAPSInt64 value) override;
     void Dynamic() override;
 
 private:
@@ -41,11 +42,13 @@ private:
     void AllocateOutputBufferMaps(const MAPSTimestamp /*ts*/, const MAPS::InputElt<MAPSImage> imageInElt);
     void ProcessDataIpl(const MAPSTimestamp ts, const MAPS::InputElt<IplImage> inElt);
     void ProcessDataMaps(const MAPSTimestamp ts, const MAPS::InputElt<MAPSImage> inElt);
+    void ApplyNumThreads(MAPSInt64 value);
 
 private :
     // Place here your specific methods and attributes
     bool m_isBGR;
     int	 m_pattern;
+    bool m_verbose = false;
 
     cv::Mat m_tempImageIn;
     cv::Mat m_tempImageOut;

@@ -46,6 +46,11 @@ MAPS_BEGIN_PROPERTIES_DEFINITION(MAPSBayerDecoder)
     MAPS_PROPERTY_ENUM("input_type", "IPLImage|MAPSImage", 0, false, true)
     MAPS_PROPERTY_ENUM("input_pattern", "BG|GB|RG|GR", 0, false, true)
     MAPS_PROPERTY_ENUM("outputFormat", "BGR|RGB", 0, false, false)
+    // num_threads: cv::setNumThreads is process-global so any value set here
+    // applies to every OpenCV call in the diagram. 0 = use all CPUs.
+    MAPS_PROPERTY("num_threads", 1, false, true)
+    // verbose: gates per-stage timing logging to the RTMaps console.
+    MAPS_PROPERTY("verbose", false, false, true)
 MAPS_END_PROPERTIES_DEFINITION
 
 // Use the macros to declare the actions
@@ -72,6 +77,10 @@ void MAPSBayerDecoder::Birth()
 {
     m_isBGR = (GetIntegerProperty("outputFormat") == 0);
     m_pattern = static_cast<MAPS_BAYER_PATTERN>(GetEnumProperty("input_pattern").GetSelected());
+    m_verbose = GetBoolProperty("verbose");
+
+    cv::setUseOptimized(true);
+    ApplyNumThreads(GetIntegerProperty("num_threads"));
 
     if (GetIntegerProperty("input_type") == 0)
     {
@@ -121,6 +130,32 @@ void MAPSBayerDecoder::Set(MAPSProperty& p, const MAPSString& value)
     if (p.ShortName() == "input_pattern")
     {
         m_pattern = static_cast<MAPS_BAYER_PATTERN>(GetEnumProperty("input_pattern").GetSelected());
+    }
+}
+
+void MAPSBayerDecoder::Set(MAPSProperty& p, MAPSInt64 value)
+{
+    MAPSComponent::Set(p, value);
+    if (p.ShortName() == "num_threads")
+    {
+        ApplyNumThreads(value);
+    }
+    else if (p.ShortName() == "verbose")
+    {
+        m_verbose = (value != 0);
+    }
+}
+
+void MAPSBayerDecoder::ApplyNumThreads(MAPSInt64 value)
+{
+    const int requested = (value <= 0) ? cv::getNumberOfCPUs() : static_cast<int>(value);
+    cv::setNumThreads(requested);
+    if (m_verbose)
+    {
+        MAPSStreamedString sx;
+        sx << "OpenCV thread count set to " << cv::getNumThreads()
+           << " (requested " << requested << ")";
+        ReportInfo(sx);
     }
 }
 
@@ -337,12 +372,15 @@ void MAPSBayerDecoder::ProcessDataMaps(const MAPSTimestamp ts, const MAPS::Input
 void MAPSBayerDecoder::ReportTimingIfDue()
 {
     if (m_perfFrameCount < 100) return;
-    MAPSStreamedString sx;
-    sx << "BayerDecoder timing avg over " << static_cast<MAPSInt64>(m_perfFrameCount) << " frames (us): "
-       << "OutputGuard=" << static_cast<MAPSInt64>(m_perfGuardUs    / m_perfFrameCount)
-       << ", IplImage<->Mat=" << static_cast<MAPSInt64>(m_perfConvertUs  / m_perfFrameCount)
-       << ", cvtColor=" << static_cast<MAPSInt64>(m_perfCvtColorUs / m_perfFrameCount);
-    ReportInfo(sx);
+    if (m_verbose)
+    {
+        MAPSStreamedString sx;
+        sx << "BayerDecoder timing avg over " << static_cast<MAPSInt64>(m_perfFrameCount) << " frames (us): "
+           << "OutputGuard=" << static_cast<MAPSInt64>(m_perfGuardUs    / m_perfFrameCount)
+           << ", IplImage<->Mat=" << static_cast<MAPSInt64>(m_perfConvertUs  / m_perfFrameCount)
+           << ", cvtColor=" << static_cast<MAPSInt64>(m_perfCvtColorUs / m_perfFrameCount);
+        ReportInfo(sx);
+    }
     m_perfGuardUs = 0;
     m_perfConvertUs = 0;
     m_perfCvtColorUs = 0;

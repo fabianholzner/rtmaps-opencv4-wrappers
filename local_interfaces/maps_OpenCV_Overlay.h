@@ -43,10 +43,12 @@ private:
     void updateFontFace(MAPSInt64 index);
     void overlayShape(cv::Mat output, MAPSDrawingObject& todraw);
     cv::Scalar setColorOverlay(int r, int g, int b);
+    void ApplyNumThreads(MAPSInt64 value);
 
 private :
     // Place here your specific methods and attributes
     int m_readersMode;
+    bool m_verbose = false;
 
     int	m_fontFace;
     int	m_nbInputs;
