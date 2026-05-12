@@ -266,10 +266,10 @@ void MAPScvOverlay::ProcessData(const MAPSTimestamp ts, const MAPS::ArrayView<MA
         if (inElts[i].IsValid())
         {
             int vectorSize = static_cast<int>(inElts[i].VectorSize());
-            m_shapes[i].SetSize(vectorSize);
+            m_shapes[i - 1].SetSize(vectorSize);
             for (int j = 0; j < vectorSize; ++j)
             {
-                m_shapes[i](j) = inElts[i].DataAs<MAPSDrawingObject>(j);
+                m_shapes[i - 1](j) = inElts[i].DataAs<MAPSDrawingObject>(j);
             }
         }
     }
