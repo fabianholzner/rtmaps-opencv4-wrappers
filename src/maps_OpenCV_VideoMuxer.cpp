@@ -43,6 +43,11 @@ MAPS_END_OUTPUTS_DEFINITION
 
 // Use the macros to declare the properties
 MAPS_BEGIN_PROPERTIES_DEFINITION(MAPSOpenCV_VideoMuxer)
+    // num_threads: cv::setNumThreads is process-global so any value set here
+    // applies to every OpenCV call in the diagram. 0 = use all CPUs.
+    MAPS_PROPERTY("num_threads", 1, false, true)
+    // verbose: gates per-stage timing logging to the RTMaps console.
+    MAPS_PROPERTY("verbose", false, false, true)
     MAPS_PROPERTY("nb_inputs", 2, false, false)
     MAPS_PROPERTY_ENUM("sampling_mode", "Triggered|Synchronized|Asynchronous (update at each img recv)", 0, false, false)
     MAPS_PROPERTY_ENUM("trigger_input", "None", 0, false, false)
@@ -56,11 +61,6 @@ MAPS_BEGIN_PROPERTIES_DEFINITION(MAPSOpenCV_VideoMuxer)
     MAPS_PROPERTY("height", -1, false, true)
     MAPS_PROPERTY("z_order", -1, false, true)
     MAPS_PROPERTY_END_SUBSECTION("subsection_end_opened", true)
-    // num_threads: cv::setNumThreads is process-global so any value set here
-    // applies to every OpenCV call in the diagram. 0 = use all CPUs.
-    MAPS_PROPERTY("num_threads", 1, false, true)
-    // verbose: gates per-stage timing logging to the RTMaps console.
-    MAPS_PROPERTY("verbose", false, false, true)
 MAPS_END_PROPERTIES_DEFINITION
 
 // Use the macros to declare the actions
@@ -73,7 +73,7 @@ MAPS_COMPONENT_DEFINITION(MAPSOpenCV_VideoMuxer, "OpenCV_VideoMuxer", "2.0.3", 1
                              MAPS::Sequential | MAPS::Threaded, MAPS::Threaded,
                              0, // Nb of inputs
                             -1, // Nb of outputs
-                             2, // Nb of properties
+                             4, // Nb of properties (num_threads, verbose, nb_inputs, sampling_mode)
                             -1) // Nb of actions
 
 enum ReaderMode : uint8_t
@@ -85,7 +85,7 @@ enum ReaderMode : uint8_t
 
 enum Property : uint8_t
 {
-    Property_ImageName = 6,
+    Property_ImageName = 8,
     Property_Left,
     Property_Top,
     Property_Width,
@@ -104,15 +104,15 @@ void MAPSOpenCV_VideoMuxer::Dynamic()
     {
     case ReaderMode_Triggered:
         NewProperty("trigger_input");
-        m_firstPositionPropRuntime = 5;
+        m_firstPositionPropRuntime = 7;
         m_trigger = static_cast<int>(GetIntegerProperty("trigger_input"));
         break;
     case ReaderMode_Synchronized:
         NewProperty("synchro_tolerance");
-        m_firstPositionPropRuntime = 5;
+        m_firstPositionPropRuntime = 7;
         break;
     case ReaderMode_Async:
-        m_firstPositionPropRuntime = 4;
+        m_firstPositionPropRuntime = 6;
         break;
     default:
         Error("Reader mode not supported");

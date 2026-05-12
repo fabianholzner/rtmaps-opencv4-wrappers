@@ -44,6 +44,11 @@ MAPS_END_OUTPUTS_DEFINITION
 
 // Use the macros to declare the properties
 MAPS_BEGIN_PROPERTIES_DEFINITION(MAPScvOverlay)
+    // num_threads: cv::setNumThreads is process-global so any value set here
+    // applies to every OpenCV call in the diagram. 0 = use all CPUs.
+    MAPS_PROPERTY("num_threads", 1, false, true)
+    // verbose: gates per-stage timing logging to the RTMaps console.
+    MAPS_PROPERTY("verbose", false, false, true)
     MAPS_PROPERTY("nbOfInputs", 1, false, false)
     MAPS_PROPERTY_ENUM("synchronization", "on images|synchronized", 0, false, false)
     MAPS_PROPERTY("synchrotolerance", 0, false, false)
@@ -54,15 +59,12 @@ MAPS_BEGIN_PROPERTIES_DEFINITION(MAPScvOverlay)
     MAPS_PROPERTY("fill_shape", false, false, false)
     MAPS_PROPERTY("override_color", false, false, false)
     MAPS_PROPERTY_SUBTYPE("color", MAPS_RGB(0xFF, 0xFF, 0xFF), false, true, MAPS::PropertySubTypeColor)
-    // num_threads: cv::setNumThreads is process-global so any value set here
-    // applies to every OpenCV call in the diagram. 0 = use all CPUs.
-    MAPS_PROPERTY("num_threads", 1, false, true)
-    // verbose: gates per-stage timing logging to the RTMaps console.
-    MAPS_PROPERTY("verbose", false, false, true)
 MAPS_END_PROPERTIES_DEFINITION
 
 enum PROPERTY : uint8_t
 {
+    PROPERTY_NUM_THREADS,
+    PROPERTY_VERBOSE,
     PROPERTY_NB_INPUTS,
     PROPERTY_READER_MODE,
     PROPERTY_SYNCHRO_TOL,

@@ -43,14 +43,14 @@ MAPS_END_OUTPUTS_DEFINITION
 
 // Use the macros to declare the properties
 MAPS_BEGIN_PROPERTIES_DEFINITION(MAPSBayerDecoder)
-    MAPS_PROPERTY_ENUM("input_type", "IPLImage|MAPSImage", 0, false, true)
-    MAPS_PROPERTY_ENUM("input_pattern", "BG|GB|RG|GR", 0, false, true)
-    MAPS_PROPERTY_ENUM("outputFormat", "BGR|RGB", 0, false, false)
     // num_threads: cv::setNumThreads is process-global so any value set here
     // applies to every OpenCV call in the diagram. 0 = use all CPUs.
     MAPS_PROPERTY("num_threads", 1, false, true)
     // verbose: gates per-stage timing logging to the RTMaps console.
     MAPS_PROPERTY("verbose", false, false, true)
+    MAPS_PROPERTY_ENUM("input_type", "IPLImage|MAPSImage", 0, false, true)
+    MAPS_PROPERTY_ENUM("input_pattern", "BG|GB|RG|GR", 0, false, true)
+    MAPS_PROPERTY_ENUM("outputFormat", "BGR|RGB", 0, false, false)
 MAPS_END_PROPERTIES_DEFINITION
 
 // Use the macros to declare the actions

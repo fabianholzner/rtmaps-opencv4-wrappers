@@ -42,9 +42,6 @@ MAPS_END_OUTPUTS_DEFINITION
 
 // Use the macros to declare the properties
 MAPS_BEGIN_PROPERTIES_DEFINITION(MAPSOpenCV_Resize)
-MAPS_PROPERTY("new_size_x", 320, false, false)
-MAPS_PROPERTY("new_size_y", 240, false, false)
-MAPS_PROPERTY_ENUM("interpolation", "Nearest Neighbor|Bilinear|Bicubic|Area|Lanczos|Linear Exact", 1, false, true)
 // num_threads: cv::setNumThreads is process-global, so it applies to every
 // OpenCV call in the diagram. The value last applied wins. 0 = use all CPUs;
 // any positive value caps the OpenCV parallel framework to that many threads.
@@ -53,6 +50,9 @@ MAPS_PROPERTY("num_threads", 1, false, true)
 // and per-stage timing averages to the RTMaps console. Off by default to keep
 // the console quiet in production diagrams.
 MAPS_PROPERTY("verbose", false, false, true)
+MAPS_PROPERTY("new_size_x", 320, false, false)
+MAPS_PROPERTY("new_size_y", 240, false, false)
+MAPS_PROPERTY_ENUM("interpolation", "Nearest Neighbor|Bilinear|Bicubic|Area|Lanczos|Linear Exact", 1, false, true)
 MAPS_END_PROPERTIES_DEFINITION
 
 // Use the macros to declare the actions
