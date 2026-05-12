@@ -329,12 +329,11 @@ void MAPSOpenCV_VideoMuxer::ComputeSizesAndAllocOutBuffer()
     if (m_outNeedResize)
     {
         m_tempImage = MAPS::IplImageModel(m_totalmWidth, m_totalmHeight, *reinterpret_cast<MAPSUInt32*>(&m_chanSeq), m_dataOrder, m_depth, m_align);
-        m_tempImageData.reserve(m_tempImage.imageSize);
+        m_tempImageData.resize(m_tempImage.imageSize);
         m_tempImage.imageData = m_tempImageData.data();
 
         m_tempImage.roi = &m_tempROI;
 
-        MAPS::Memset(m_tempImage.imageData, 0, m_tempImage.imageSize);
         MAPS::Memset(m_tempImage.roi, 0, sizeof(IplROI));
         m_tempImage.roi->width = m_tempImage.width;
         m_tempImage.roi->height = m_tempImage.height;
