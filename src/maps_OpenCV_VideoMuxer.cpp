@@ -190,6 +190,16 @@ void MAPSOpenCV_VideoMuxer::Birth()
     cv::setUseOptimized(true);
     ApplyNumThreads(GetIntegerProperty("num_threads"));
 
+    if (m_verbose)
+    {
+        ReportInfo(cv::getBuildInformation().c_str());
+        MAPSStreamedString sx;
+        sx << "OpenCV runtime status -- optimized: " << (cv::useOptimized() ? "YES" : "NO")
+           << ", threads: " << cv::getNumThreads()
+           << ", CPUs: " << cv::getNumberOfCPUs();
+        ReportInfo(sx);
+    }
+
     //Initialize member variables
     m_ioEltImage.SetSize(m_nbInputs);
     m_sizeInitialized.resize(m_nbInputs);

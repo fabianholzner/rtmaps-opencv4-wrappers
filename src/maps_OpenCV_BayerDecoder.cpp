@@ -82,6 +82,16 @@ void MAPSBayerDecoder::Birth()
     cv::setUseOptimized(true);
     ApplyNumThreads(GetIntegerProperty("num_threads"));
 
+    if (m_verbose)
+    {
+        ReportInfo(cv::getBuildInformation().c_str());
+        MAPSStreamedString sx;
+        sx << "OpenCV runtime status -- optimized: " << (cv::useOptimized() ? "YES" : "NO")
+           << ", threads: " << cv::getNumThreads()
+           << ", CPUs: " << cv::getNumberOfCPUs();
+        ReportInfo(sx);
+    }
+
     if (GetIntegerProperty("input_type") == 0)
     {
         m_inputReader = MAPS::MakeInputReader::Reactive(
