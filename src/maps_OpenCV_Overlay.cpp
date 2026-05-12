@@ -56,6 +56,9 @@ MAPS_BEGIN_PROPERTIES_DEFINITION(MAPScvOverlay)
     MAPS_PROPERTY("drawbkg", false, false, true)
     MAPS_PROPERTY_ENUM("font", "FONT_HERSHEY_SIMPLEX|FONT_HERSHEY_PLAIN|FONT_HERSHEY_DUPLEX|FONT_HERSHEY_COMPLEX|FONT_HERSHEY_TRIPLEX|FONT_HERSHEY_COMPLEX_SMALL|FONT_HERSHEY_SCRIPT_SIMPLEX|FONT_HERSHEY_SCRIPT_COMPLEX", 0, false, true)
     MAPS_PROPERTY("italic", false, false, true)
+    // useFontSize: if true, MAPSText::cheight is used to derive OpenCV fontScale.
+    // If cheight <= 0, the component falls back to OpenCV fontScale = 1.0.
+    MAPS_PROPERTY("useFontSize", false, false, true)
     MAPS_PROPERTY("fill_shape", false, false, false)
     MAPS_PROPERTY("override_color", false, false, false)
     MAPS_PROPERTY_SUBTYPE("color", MAPS_RGB(0xFF, 0xFF, 0xFF), false, true, MAPS::PropertySubTypeColor)
@@ -72,6 +75,7 @@ enum PROPERTY : uint8_t
     PROPERTY_DRAWBKG,
     PROPERTY_FONT,
     PROPERTY_ITALIC,
+    PROPERTY_USE_FONT_SIZE,
     PROPERTY_FILL_SHAPE,
     PROPERTY_OVERRIDE_COLOR,
     PROPERTY_COLOR
@@ -93,7 +97,7 @@ MAPS_COMPONENT_DEFINITION(MAPScvOverlay, "OpenCV_Overlay", "2.0.3", 128,
                             MAPS::Threaded, MAPS::Threaded,
                              1, // Nb of inputs
                             -1, // Nb of outputs
-                            11, // Nb of properties
+                            12, // Nb of properties
                             -1) // Nb of actions
 
 void MAPScvOverlay::Dynamic()
@@ -494,18 +498,32 @@ void MAPScvOverlay::overlayShape(cv::Mat output, MAPSDrawingObject& todraw)
         thickness = static_cast<int>(GetIntegerProperty(PROPERTY_THICKNESS));
         MAPSText txt = todraw.text;
         cv::Size txtsize;
-        int baseline;
+        int baseline = 0;
 
         bool drawbkg = false;
         GetProperty(PROPERTY_DRAWBKG, drawbkg);
 
-        if (GetBoolProperty(PROPERTY_ITALIC))
-            txtsize = cv::getTextSize(txt.text, m_fontFace | cv::FONT_ITALIC, 1, thickness, &baseline);
-        else
-            txtsize = cv::getTextSize(txt.text, m_fontFace, 1, thickness, &baseline);
+        const int fontFace = GetBoolProperty(PROPERTY_ITALIC)
+            ? (m_fontFace | cv::FONT_ITALIC)
+            : m_fontFace;
+
+        double fontScale = 1.0;
+        if (GetBoolProperty(PROPERTY_USE_FONT_SIZE) && txt.cheight > 0)
+        {
+            int baseBaseline = 0;
+            const cv::Size baseSize = cv::getTextSize("Hg", fontFace, 1.0, thickness, &baseBaseline);
+            if (baseSize.height > 0)
+            {
+                fontScale = static_cast<double>(txt.cheight) / static_cast<double>(baseSize.height);
+            }
+        }
+
+        txtsize = cv::getTextSize(txt.text, fontFace, fontScale, thickness, &baseline);
+
         int i = 0;
         while (txt.text[i] != '\0')
             i++;
+
         if (drawbkg)
         {
             r = MAPS_RGB_EXTRACT_R(todraw.text.bkcolor);
@@ -513,12 +531,16 @@ void MAPScvOverlay::overlayShape(cv::Mat output, MAPSDrawingObject& todraw)
             b = MAPS_RGB_EXTRACT_B(todraw.text.bkcolor);
 
             cv::Scalar bkcolor = setColorOverlay(r, g, b);
-            cv::rectangle(output, cv::Point(txt.x, txt.y), cv::Point(txt.x + txtsize.width, txt.y + txtsize.height), bkcolor, cv::FILLED);
+            cv::rectangle(
+                output,
+                cv::Point(txt.x, txt.y),
+                cv::Point(txt.x + txtsize.width, txt.y + txtsize.height + baseline),
+                bkcolor,
+                cv::FILLED
+            );
         }
-        if (GetBoolProperty(PROPERTY_ITALIC))
-            cv::putText(output, txt.text, cv::Point(txt.x, txt.y + txtsize.height), m_fontFace | cv::FONT_ITALIC, 1, color, thickness);
-        else
-            cv::putText(output, txt.text, cv::Point(txt.x, txt.y + txtsize.height), m_fontFace, 1, color, thickness);
+
+        cv::putText(output, txt.text, cv::Point(txt.x, txt.y + txtsize.height), fontFace, fontScale, color, thickness);
 
     }
     else

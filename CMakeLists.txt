@@ -18,7 +18,7 @@
 
 cmake_minimum_required(VERSION 2.8.12)
 
-set(PCK rtmaps_opencv4)
+set(PCK rtmaps_image_processing_opencv4_man)
 project("${PCK}.u")
 
 set(CMAKE_CXX_STANDARD          17 )
